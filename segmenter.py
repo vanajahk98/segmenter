@@ -6,6 +6,7 @@ from operator import itemgetter
 import logging
 import sys
 from random import random
+from LangModel import LangModel
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -20,7 +21,11 @@ def sticky_score(segment):
     """
     Calculate the stickiness score of a segment.
     """
-    return random()
+    segment_str = ' '.join([each.strip() for each in segment])
+    lm = LangModel('body')
+    score = lm.get_jp([segment_str])[0]
+    return score
+    #return random()
     #raise NotImplementedError
 
 # split the string into words based in whitespaces
