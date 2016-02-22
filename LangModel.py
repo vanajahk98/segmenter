@@ -27,6 +27,7 @@ class LangModel(object):
 
     def get_body(self, phrases):
         b = {'queries' : phrases}
+        print json.dumps(b)
         return json.dumps(b)
 
     def parse_result(self, result):
@@ -40,7 +41,7 @@ class LangModel(object):
         response = conn.getresponse()
         data = response.read()
         ret = self.parse_result(data)
-        return [ret[i.lower()] for i in phrases]
+        return ret
 
 if __name__ == '__main__':
     phrases = ['Artificial Universe', 'unstoppable']
