@@ -10,6 +10,7 @@ from LangModel import LangModel
 from string import punctuation
 from pprint import pprint
 import re
+import numpy
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -43,12 +44,21 @@ def sticky_score(segment, cache={}):
     """
     Calculate the stickiness score of a segment.
     """
+    if len(segment) <= 1:
+        score = 1
+    else:
+        scp = get_scp(segment, cache)
+        score = 2/(1 + numpy.exp(-1 * scp))
+    return score
+
+def get_scp(segment, cache):
+    v1 = numpy.array([cache[i] for i in segment[:-1]])
+    v2 = numpy.array([cache[i] for i in segment[1:]])
+    n = len(segment)
     segment_str = ' '.join([each.strip() for each in segment])
     score = cache.get(segment_str)
-    if not score:
-        lm = LangModel('body')
-        score = lm.get_jp([segment_str])[segment_str]
-    return score
+    scp = ((n - 1) * numpy.exp(2*score))/sum(numpy.exp(v1 + v2))
+    return scp
 
 def preprocess(toks):
     all_grams = list(set(find_all_grams(toks)))
@@ -59,6 +69,7 @@ def preprocess(toks):
 
 def segment(in_str):
     """
+    Segmentation algorithm as given in the paper
     L : no. words in the string
     """
     words = split_to_words(in_str)
@@ -95,9 +106,9 @@ def segment(in_str):
 
 
 if __name__ == '__main__':
+    T = u'We have some delightful new food in the cafeteria. Awesome!!!'
     T = u'''Be really careful with those early entrance polls. Not intended for making projections. Weren't accurate in Iowa. '''
     T = u'this youth olympic games sailing competition'
-    T = u'We have some delightful new food in the cafeteria. Awesome!!!'
     k = segment(T)
     print T
     print "Best Segmentation : "
