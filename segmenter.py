@@ -11,6 +11,7 @@ from string import punctuation
 from pprint import pprint
 import re
 import numpy
+from math import pow
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -21,6 +22,7 @@ logger.addHandler(stdout_handler)
 U = 5 # Max length of a segment
 E = 5 # Max sub segments of a segment to be considered
 REGEX = re.compile('[%s]' % re.escape(punctuation))
+LINKS_RE = re.compile("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)")
 
 WIKI_Q_FILE_PATH = 'WikiQsEng/WikiQsEng.txt'
 
@@ -29,9 +31,11 @@ def load_wiki_q():
     with open(WIKI_Q_FILE_PATH) as f:
         for line in f:
             kwd, p = line.strip().rsplit(',', 1)
-            kwd = kwd.replace('_', ' ')
-            kwd = REGEX.sub(' ', kwd)
-            d[kwd] = max(float(p), float(0))
+            v = max(float(p), float(0))
+            if v > 0:
+                kwd = kwd.replace('_', ' ')
+                kwd = REGEX.sub(' ', kwd)
+                d[kwd] = v
     return d
 
 WIKI_Q = load_wiki_q()
@@ -49,8 +53,7 @@ def split_to_words(in_str):
     in_str = in_str.lower()
     in_str = in_str.replace('\'', '')
     in_str = in_str.replace('`', '')
-    in_str = REGEX.sub(' ', in_str)
-    tokens = filter(None, [each.strip() for each in in_str.split(' ')])
+    tokens = filter(None, [REGEX.sub(' ', LINKS_RE.sub('', each)).strip() for each in in_str.split(' ')])
     return tokens
 
 def sticky_score(segment, cache={}):
@@ -61,9 +64,9 @@ def sticky_score(segment, cache={}):
     l_normal_factor = normalize_seg_length(len(segment))
     q_score = wiki_keyphraseness(segment)
     score = 2/(1 + numpy.exp(-1 * scp)) \
-            * numpy.exp(10*q_score) \
+            * numpy.exp(q_score) \
             * l_normal_factor
-    print ' '.join(segment), "SCP: %s, l_score: %s, q_score: %s, total %s" % (scp, l_normal_factor, q_score, score)
+    logger.debug("%s : SCP: %s, l_score: %s, q_score: %s, total %s" % (' '.join(segment), scp, l_normal_factor, q_score, score))
     return score
 
 def wiki_keyphraseness(segment):
@@ -93,13 +96,15 @@ def get_scp(segment, cache):
         v = [cache[' '.join(segment[:i])] + cache[' '.join(segment[i:])] for i in range(1, n)]
         segment_str = ' '.join([each.strip() for each in segment])
         score = cache.get(segment_str)
-        scp = 2*score - (sum(numpy.exp(v))/(n - 1))
+        scp = 2*score - numpy.log((sum(numpy.exp(v))/(n - 1)))
     return scp
 
 def preprocess(toks):
     all_grams = list(set(find_all_grams(toks)))
     lm = LangModel('body')
     pvals = lm.get_jp(all_grams)
+    for k in pvals.keys():
+        pvals[k] = numpy.log(pow(10, pvals[k]))
     return pvals
 
 def segment(in_str):
@@ -141,10 +146,12 @@ def segment(in_str):
 
 
 if __name__ == '__main__':
-    T = u'''1st sentence: "Antonin Scalia...devoted his professional life to making the [US] a less fair, less tolerant, and less admirable democracy"'''
     T = u'youth olympic games sailing competition'
+    T =u'vote sdp'
+    T = u'"leo messi is better player than cristiano ronaldo"'
     T = u'''French leading daily Le Monde said in editorial, "the horizon of Indian democracy has been oddly clouded since the coming to power of Modi." '''
-    '''
+    T = u'''1st sentence: "Antonin Scalia...devoted his professional life to making the [US] a less fair, less tolerant, and less admirable democracy"'''
+    T = u'''Can @SAfridiOfficial lead Pakistan to another #WT20 title at ICC World Twenty20 India 2016? http://bit.ly/WT20SquadsAnnounced … '''
     k = segment(T)
     print T
     print "Best Segmentation : "
@@ -154,3 +161,4 @@ if __name__ == '__main__':
     for each in find_all_grams(split_to_words(T)):
         each = each.split()
         print  each, numpy.exp(get_scp(each, cache)), numpy.exp(cache[' '.join(each)])
+    '''
