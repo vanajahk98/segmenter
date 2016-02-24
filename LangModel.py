@@ -27,7 +27,6 @@ class LangModel(object):
 
     def get_body(self, phrases):
         b = {'queries' : phrases}
-        print json.dumps(b)
         return json.dumps(b)
 
     def parse_result(self, result):
